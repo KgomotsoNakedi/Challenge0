@@ -1,16 +1,17 @@
 # Import libraries
-
+import os
+import glob
 import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-import mflow
+import mlflow
 
 
 # define functions
 def main(args):
     # TO DO: enable autologging
-mflow.autolog()
+    mlflow.autolog()
 
     # read data
     df = get_csvs_df(args.training_data)
@@ -33,8 +34,8 @@ def get_csvs_df(path):
 
 # TO DO: add function to split data
 def split_data(df, test_size=0.2, random_state=42):
-    x=df.drop(columns=['target'])
-    y=df['target']
+    x=df.drop(columns=['Diabetic'])
+    y=df['Diabetic']
 
     X_train,X_test,y_test,y_train=train_test_split(X,y, test_size=0.2, random_state=42)
     return X_train, X_test, y_train, y_test
@@ -42,8 +43,14 @@ def split_data(df, test_size=0.2, random_state=42):
 
 def train_model(reg_rate, X_train, X_test, y_train, y_test):
     # train model
-    LogisticRegression(C=1/reg_rate, solver="liblinear").fit(X_train, y_train)
-
+    model=LogisticRegression(C=1/reg_rate, solver="liblinear")
+    model.fit(X_train, y_train)
+    y_pred=model.predict(X_test)
+    
+   #log metrics
+   accuracy=accuracy_score(y_test,y_pred)
+   mlflow.log_metric("accuracy", accuracy)
+   mlflow.log_param("reg_rate", reg_rate)
 
 def parse_args():
     # setup arg parser
@@ -55,20 +62,18 @@ def parse_args():
     parser.add_argument("--reg_rate", dest='reg_rate',
                         type=float, default=0.01)
 
-    # parse args
-    args = parser.parse_args()
-
     # return args
-    return args
+    return parser.parse_args()
 
 # run script
 if __name__ == "__main__":
-    # add space in logs
-    print("\n\n")
-    print("*" * 60)
 
     # parse args
     args = parse_args()
+
+with mlflow.start_run():
+    mlflow.log_param("training_data", args.training_data)
+    mlflow.log_param("reg_rate", args.reg_rate)
 
     # run main function
     main(args)
